@@ -38,9 +38,61 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .status .round{color:var(--sand);}
 .start-btn{background:none;border:1px solid rgba(196,168,130,0.3);color:var(--sand);padding:8px 28px;border-radius:16px;font-family:'Cormorant Garamond',serif;font-size:15px;cursor:pointer;letter-spacing:1px;margin-top:8px;}
 .start-btn:active{transform:scale(0.95);}
+
+/* ONBOARDING OVERLAY */
+.onboard-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:100;display:flex;align-items:center;justify-content:center;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);padding:20px;}
+.onboard-overlay.hidden{display:none;}
+.onboard{background:var(--bg2);border:1px solid rgba(196,168,130,0.1);border-radius:16px;padding:24px 20px;max-width:380px;width:100%;max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.onboard h2{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:300;color:var(--sand);letter-spacing:2px;text-align:center;margin-bottom:14px;}
+.onboard .step{display:flex;gap:10px;margin-bottom:12px;align-items:flex-start;}
+.onboard .step-num{background:var(--sky);color:#0d1117;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;flex-shrink:0;margin-top:2px;}
+.onboard .step-text{font-size:12px;line-height:1.6;color:var(--text);opacity:0.9;}
+.onboard .step-text strong{color:var(--sand);}
+.onboard .science-note{font-size:10px;color:var(--sky);font-style:italic;margin:12px 0;padding:8px;background:rgba(107,163,190,0.06);border-radius:8px;line-height:1.5;}
+.onboard .dismiss{display:block;margin:16px auto 0;background:rgba(196,168,130,0.1);border:1px solid rgba(196,168,130,0.25);color:var(--sand);padding:10px 32px;border-radius:12px;font-family:'Cormorant Garamond',serif;font-size:14px;cursor:pointer;letter-spacing:1px;}
+.onboard .dismiss:active{transform:scale(0.95);}
+
+.info-btn{position:fixed;top:calc(10px+env(safe-area-inset-top));right:14px;background:none;border:none;color:var(--text-dim);padding:6px;cursor:pointer;z-index:10;}
 </style>
 </head>
 <body>
+
+<!-- INFO BUTTON -->
+<button class="info-btn" id="infoBtn">
+  <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="8.5"/><path d="M10 13v-2m0-3.5h.01"/></svg>
+</button>
+
+<!-- ONBOARDING OVERLAY -->
+<div class="onboard-overlay" id="onboard">
+  <div class="onboard">
+    <h2>How N-Back Works</h2>
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-text">A square lights up in the <strong>3x3 grid</strong>. A new square lights up every 2.5 seconds.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-text">Your job: tap <strong>MATCH</strong> if the current square is in the <strong>same position</strong> as the one from <strong>N steps ago</strong>.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-text">In <strong>2-Back</strong> mode, you compare to 2 steps ago. In <strong>3-Back</strong>, three steps ago. The higher the N, the harder.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-text">If it's a match and you tap MATCH → <strong style="color:var(--green)">Hit!</strong><br>If it's a match and you don't tap → <strong style="color:var(--red)">Miss.</strong><br>If it's not a match and you tap → <strong style="color:var(--red)">False alarm.</strong></div>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-text">Start with <strong>2-Back</strong>. When you consistently hit 80%+ accuracy, move up a level.</div>
+    </div>
+    <div class="science-note">
+      This is the only brain training exercise with strong, replicated evidence for improving fluid intelligence. fMRI studies confirm prefrontal cortex changes after 2-4 weeks of 20 min/day practice.
+    </div>
+    <button class="dismiss" id="dismissOnboard">Got it — let's train</button>
+  </div>
+</div>
+
 <div class="header">
   <h1>N-Back</h1>
   <div class="sub">Working memory training</div>
@@ -202,6 +254,18 @@ document.getElementById('startBtn').addEventListener('click',()=>{
 });
 
 buildGrid();renderLevels();
+
+// Onboarding — show on first visit, hide after dismiss
+const onboard=document.getElementById('onboard');
+if(localStorage.getItem('nback-onboarded')) onboard.classList.add('hidden');
+document.getElementById('dismissOnboard').addEventListener('click',()=>{
+  onboard.classList.add('hidden');
+  localStorage.setItem('nback-onboarded','1');
+});
+document.getElementById('infoBtn').addEventListener('click',()=>{
+  onboard.classList.remove('hidden');
+});
+
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
