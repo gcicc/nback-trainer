@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="N-Back">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>N-Back Trainer</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&family=Inter:wght@300;400;500&display=swap');
+:root{--bg:#0d1117;--bg2:#161b22;--bg3:#1c2333;--sand:#c4a882;--text:#e6ddd0;--text-dim:#7d7567;--green:#4caf50;--red:#c47d7d;--sky:#6ba3be;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:env(safe-area-inset-top) 20px env(safe-area-inset-bottom);}
+.header{text-align:center;margin-bottom:12px;}
+.header h1{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:300;letter-spacing:3px;color:var(--sand);text-transform:uppercase;}
+.header .sub{font-size:9px;color:var(--text-dim);letter-spacing:2px;text-transform:uppercase;margin-top:2px;}
+.header .science{font-size:8px;color:var(--sky);margin-top:4px;font-style:italic;}
+.level-row{display:flex;gap:6px;justify-content:center;margin-bottom:12px;}
+.level-btn{background:none;border:1px solid rgba(196,168,130,0.15);color:var(--text-dim);padding:5px 12px;border-radius:10px;font-size:11px;cursor:pointer;transition:all 0.2s;}
+.level-btn.active{color:var(--sand);border-color:rgba(196,168,130,0.4);background:rgba(196,168,130,0.08);}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;width:min(280px,80vw);height:min(280px,80vw);margin-bottom:16px;}
+.cell{background:var(--bg2);border:1px solid rgba(196,168,130,0.06);border-radius:10px;transition:all 0.15s;}
+.cell.lit{background:var(--sky);border-color:var(--sky);box-shadow:0 0 20px rgba(107,163,190,0.3);}
+.cell.correct{background:var(--green);border-color:var(--green);}
+.cell.wrong{background:var(--red);border-color:var(--red);}
+.match-btn{width:100%;max-width:280px;padding:14px;border-radius:14px;border:2px solid var(--sand);background:rgba(196,168,130,0.06);color:var(--sand);font-family:'Cormorant Garamond',serif;font-size:18px;cursor:pointer;transition:all 0.15s;letter-spacing:2px;margin-bottom:12px;}
+.match-btn:active{transform:scale(0.97);}
+.match-btn.flash-correct{background:rgba(76,175,80,0.2);border-color:var(--green);color:var(--green);}
+.match-btn.flash-wrong{background:rgba(196,125,125,0.2);border-color:var(--red);color:var(--red);}
+.stats{display:flex;gap:16px;justify-content:center;margin-bottom:8px;}
+.stat{text-align:center;}
+.stat-val{font-size:20px;font-weight:300;color:var(--sand);font-variant-numeric:tabular-nums;}
+.stat-lbl{font-size:8px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;}
+.status{font-size:11px;color:var(--text-dim);text-align:center;min-height:18px;}
+.status .round{color:var(--sand);}
+.start-btn{background:none;border:1px solid rgba(196,168,130,0.3);color:var(--sand);padding:8px 28px;border-radius:16px;font-family:'Cormorant Garamond',serif;font-size:15px;cursor:pointer;letter-spacing:1px;margin-top:8px;}
+.start-btn:active{transform:scale(0.95);}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>N-Back</h1>
+  <div class="sub">Working memory training</div>
+  <div class="science">The one exercise with fMRI-confirmed neuroplasticity effects</div>
+</div>
+
+<div class="level-row" id="levels"></div>
+
+<div class="grid" id="grid"></div>
+
+<button class="match-btn" id="matchBtn">MATCH</button>
+
+<div class="stats">
+  <div class="stat"><div class="stat-val" id="hitVal">0</div><div class="stat-lbl">Hits</div></div>
+  <div class="stat"><div class="stat-val" id="missVal">0</div><div class="stat-lbl">Misses</div></div>
+  <div class="stat"><div class="stat-val" id="pctVal">—</div><div class="stat-lbl">Accuracy</div></div>
+  <div class="stat"><div class="stat-val" id="roundVal">0</div><div class="stat-lbl">Round</div></div>
+</div>
+
+<div class="status" id="status">Tap Start to begin</div>
+<button class="start-btn" id="startBtn">Start</button>
+
+<script>
+let nLevel=2;
+let running=false;
+let sequence=[];
+let currentStep=0;
+let hits=0, misses=0, falseAlarms=0, totalMatches=0, totalNonMatches=0;
+let responded=false;
+let intervalId=null;
+const TOTAL_ROUNDS=20;
+const INTERVAL_MS=2500;
+
+// Build grid
+function buildGrid(){
+  const grid=document.getElementById('grid');
+  grid.innerHTML='';
+  for(let i=0;i<9;i++){
+    const cell=document.createElement('div');
+    cell.className='cell';
+    cell.id='cell'+i;
+    grid.appendChild(cell);
+  }
+}
+
+function renderLevels(){
+  const el=document.getElementById('levels');
+  el.innerHTML='';
+  for(let n=1;n<=4;n++){
+    const btn=document.createElement('button');
+    btn.className='level-btn'+(n===nLevel?' active':'');
+    btn.textContent=n+'-Back';
+    btn.addEventListener('click',()=>{
+      if(running) return;
+      nLevel=n;
+      renderLevels();
+    });
+    el.appendChild(btn);
+  }
+}
+
+function generateSequence(){
+  sequence=[];
+  // Ensure ~30% matches
+  for(let i=0;i<TOTAL_ROUNDS;i++){
+    if(i>=nLevel && Math.random()<0.3){
+      // Force match
+      sequence.push(sequence[i-nLevel]);
+    } else {
+      sequence.push(Math.floor(Math.random()*9));
+    }
+  }
+}
+
+function lightCell(idx){
+  // Clear all
+  for(let i=0;i<9;i++) document.getElementById('cell'+i).className='cell';
+  if(idx>=0) document.getElementById('cell'+idx).className='cell lit';
+}
+
+function isMatch(){
+  if(currentStep<nLevel) return false;
+  return sequence[currentStep]===sequence[currentStep-nLevel];
+}
+
+function showStep(){
+  if(currentStep>=TOTAL_ROUNDS){
+    endGame();
+    return;
+  }
+
+  responded=false;
+  lightCell(sequence[currentStep]);
+  document.getElementById('roundVal').textContent=currentStep+1;
+  document.getElementById('matchBtn').className='match-btn';
+
+  const match=isMatch();
+  if(match) totalMatches++;
+  else totalNonMatches++;
+
+  document.getElementById('status').innerHTML=`Round <span class="round">${currentStep+1}</span> of ${TOTAL_ROUNDS}`;
+
+  // Auto-advance after interval
+  setTimeout(()=>{
+    lightCell(-1);
+    // Check if they should have matched but didn't
+    if(!responded && match){
+      misses++;
+      updateStats();
+    }
+    currentStep++;
+    setTimeout(()=>showStep(),300);
+  },INTERVAL_MS-300);
+}
+
+function startGame(){
+  hits=0;misses=0;falseAlarms=0;totalMatches=0;totalNonMatches=0;
+  currentStep=0;
+  generateSequence();
+  running=true;
+  document.getElementById('startBtn').textContent='Stop';
+  updateStats();
+  showStep();
+}
+
+function endGame(){
+  running=false;
+  lightCell(-1);
+  document.getElementById('startBtn').textContent='Start';
+  const total=totalMatches;
+  const accuracy=total>0?Math.round(hits/total*100):0;
+  document.getElementById('status').innerHTML=`Done! ${hits}/${total} matches detected. ${accuracy}% accuracy.`;
+}
+
+document.getElementById('matchBtn').addEventListener('click',()=>{
+  if(!running || responded) return;
+  responded=true;
+
+  if(isMatch()){
+    hits++;
+    document.getElementById('matchBtn').className='match-btn flash-correct';
+  } else {
+    falseAlarms++;
+    document.getElementById('matchBtn').className='match-btn flash-wrong';
+  }
+  updateStats();
+});
+
+function updateStats(){
+  document.getElementById('hitVal').textContent=hits;
+  document.getElementById('missVal').textContent=misses;
+  const total=hits+misses+falseAlarms;
+  document.getElementById('pctVal').textContent=total>0?Math.round(hits/Math.max(1,hits+misses)*100)+'%':'—';
+}
+
+document.getElementById('startBtn').addEventListener('click',()=>{
+  if(running){running=false;lightCell(-1);document.getElementById('startBtn').textContent='Start';document.getElementById('status').textContent='Stopped';}
+  else startGame();
+});
+
+buildGrid();renderLevels();
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
